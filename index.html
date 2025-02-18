@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>互补色及明度阶梯变化</title>
+  <title>互补色,自然色系搭配</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,7 +23,7 @@
       width: 120px;
       height: 120px;
       margin: 10px;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
@@ -37,12 +36,11 @@
       text-align: center;
       font-size: 14px;
       line-height: 1.4;
-      margin-top: 60%;
     }
   </style>
 </head>
 <body>
-  <h1>互补色及明度阶梯变化</h1>
+  <h1>互补色及自然色系搭配</h1>
   <div class="controls">
     <label for="colorInput">选择颜色：</label>
     <input type="color" id="colorInput" value="#33AAFF">
@@ -75,7 +73,7 @@
       return '#' + toHex(r) + toHex(g) + toHex(b);
     }
 
-    // RGB 转 HSL（h,s,l 均在 [0,1] 范围内）
+    // RGB 转 HSL（h、s、l 均在 [0,1] 范围内）
     function rgbToHsl(r, g, b) {
       r /= 255; g /= 255; b /= 255;
       const max = Math.max(r, g, b);
@@ -126,40 +124,51 @@
       return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
     }
 
-    // 计算互补色：仅旋转色相 180°（加 0.5），保持饱和度和明度不变
+    // 计算互补色：仅旋转色相 180°（加 0.5），保留饱和度和明度
     function getComplementaryColor(hex) {
       const { r, g, b } = hexToRgb(hex);
       let { h, s, l } = rgbToHsl(r, g, b);
       h = (h + 0.5) % 1;
       const { r: compR, g: compG, b: compB } = hslToRgb(h, s, l);
-      return { color: rgbToHex(compR, compG, compB), lBase: l, h, s };
+      return { color: rgbToHex(compR, compG, compB), h, s, lBase: l };
     }
 
     /**
-     * 根据预设阶梯系数，生成一组互补色的明度变化。
-     * 这里定义了系数数组，比如 [-0.4, -0.2, 0, 0.2, 0.4]，表示基于互补色原明度的调整：
-     * 负值使颜色变暗，正值使颜色变亮，0 为基础互补色
+     * 根据预设的明度调整系数，生成互补色的明度阶梯变化颜色
+     * 例如系数数组：[-0.4, -0.2, 0, 0.2, 0.4] 表示基于原明度的调整
      */
     function getComplementaryColorsWithCoefficients(hex) {
-      // 先计算互补色及其基础明度
       const comp = getComplementaryColor(hex);
       const { h, s, lBase } = comp;
-      // 定义明度调整系数（可根据需要调整）
       const coefficients = [-0.4, -0.2, 0, 0.2, 0.4];
-      const colors = [];
+      let colors = [];
       coefficients.forEach(coef => {
-        // 调整后的明度，注意控制在 [0,1] 范围内
         const newL = Math.max(0, Math.min(1, lBase + coef));
         const { r, g, b } = hslToRgb(h, s, newL);
-        colors.push({
-          color: rgbToHex(r, g, b),
-          coeff: coef
-        });
+        colors.push({ color: rgbToHex(r, g, b), coeff: coef });
       });
       return colors;
     }
 
-    // 创建颜色块的 DOM 元素，label 中注明阶梯系数（当 coef 为 0 时标记为“基准”）
+    /**
+     * 生成自然色系的颜色搭配
+     * 基于互补色的色相和明度，通过降低饱和度来生成柔和、自然的颜色
+     * 预设饱和度系数数组：例如 [1, 0.8, 0.6, 0.4, 0.2]
+     */
+    function getNaturalColorScheme(hex) {
+      const comp = getComplementaryColor(hex);
+      const { h, s, lBase } = comp;
+      const satCoefficients = [0.9, 0.8, 0.6, 0.4, 0.2,0];
+      let colors = [];
+      satCoefficients.forEach(coef => {
+        const newS = Math.max(0, Math.min(1, s * coef));
+        const { r, g, b } = hslToRgb(h, newS, lBase);
+        colors.push({ color: rgbToHex(r, g, b), coeff: coef });
+      });
+      return colors;
+    }
+
+    // 创建颜色块元素，并在标签中标明名称、系数与颜色值
     function createColorBox(color, label, coeff = null) {
       const box = document.createElement('div');
       box.className = 'color-box';
@@ -172,36 +181,50 @@
       return box;
     }
 
-    // 更新页面上的颜色展示
+    // 更新页面上显示的颜色搭配
     function updateColors() {
       let hex = document.getElementById('hexInput').value.trim();
       if (hex && hex[0] !== '#') {
         hex = '#' + hex;
       }
-      // 简单验证颜色格式（支持3位或6位16进制）
+      // 简单验证颜色格式
       if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex)) {
         alert('请输入有效的颜色代码，例如：#33AAFF');
         return;
       }
-      // 同步更新颜色选择器
       document.getElementById('colorInput').value = hex;
-
       const container = document.getElementById('colors');
       container.innerHTML = '';
 
-      // 渲染原色
-      container.appendChild(createColorBox(hex, '原色'));
-
-      // 先计算基础互补色
+      // 第一行：互补色及明度阶梯变化
+      const brightnessHeader = document.createElement('h2');
+      brightnessHeader.textContent = '互补色明度阶梯';
+      container.appendChild(brightnessHeader);
+      const brightnessRow = document.createElement('div');
+      brightnessRow.style.display = 'flex';
+      brightnessRow.style.flexWrap = 'wrap';
+      brightnessRow.appendChild(createColorBox(hex, '原色'));
       const baseComp = getComplementaryColor(hex);
-      container.appendChild(createColorBox(baseComp.color, '互补色', 0));
-
-      // 渲染带有明度阶梯系数的互补色
+      brightnessRow.appendChild(createColorBox(baseComp.color, '互补色', 0));
       const compSet = getComplementaryColorsWithCoefficients(hex);
       compSet.forEach((item, index) => {
-        // index 用于区分各阶梯，但 label 中会显示具体的系数
-        container.appendChild(createColorBox(item.color, `阶梯 ${index + 1}`, item.coeff));
+        brightnessRow.appendChild(createColorBox(item.color, `阶梯 ${index + 1}`, item.coeff));
       });
+      container.appendChild(brightnessRow);
+
+      // 第二行：自然色系搭配（基于互补色，通过降低饱和度生成）
+      const naturalHeader = document.createElement('h2');
+      naturalHeader.textContent = '自然色系';
+      container.appendChild(naturalHeader);
+      const naturalRow = document.createElement('div');
+      naturalRow.style.display = 'flex';
+      naturalRow.style.flexWrap = 'wrap';
+      const naturalSet = getNaturalColorScheme(hex);
+      naturalRow.appendChild(createColorBox(hex, '原色'));
+      naturalSet.forEach((item, index) => {
+        naturalRow.appendChild(createColorBox(item.color, `自然 ${index + 1}`, item.coeff));
+      });
+      container.appendChild(naturalRow);
     }
 
     // 事件绑定
@@ -212,7 +235,7 @@
       updateColors();
     });
 
-    // 页面初次加载时更新一次
+    // 页面加载时初始化一次
     updateColors();
   </script>
 </body>
